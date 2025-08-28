@@ -268,4 +268,4 @@ def health():
 
 if __name__ == "__main__":
     # Avoid duplicate generator runs in Windows debug by disabling reloader
-    app.run(host="127.0.0.1", port=int(os.getenv("PORT", 8080)), debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=True, use_reloader=False)
