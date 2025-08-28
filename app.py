@@ -160,7 +160,7 @@ client = OpenAI(
     base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
-MODEL = os.getenv("MODEL", "gpt-4o-mini")
+MODEL = os.getenv("MODEL")
 
 # Server-side memory for each user (for local/demo use).
 # Key: user_id (string), Value: list of message dicts (role/content)
