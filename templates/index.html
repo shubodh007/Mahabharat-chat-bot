@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Mahabharata Storyteller</title>
+
+  <!-- Fonts and utilities -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+
+  <style>
+    :root{
+      --primary-bg:#0f192b;
+      --secondary-bg:#192544;
+      --panel:#212c41;
+      --sidebar:#252c3f;
+      --text:#eaf5ff;
+      --muted:#9eb6d2;
+      --accent:#28e0b7;
+      --accent-2:#0dbc6e;
+      --warning:#ffb84d;
+      --danger:#ff6b6b;
+      --bubble-user:linear-gradient(90deg,#28e0b7,#0dbc6e);
+      --bubble-ai:#f5f7fa;
+      --ai-text:#18244a;
+      --radius:18px;
+      --shadow:0 8px 22px rgba(0,0,0,.12);
+      --transition:.25s ease;
+      --font:'Rubik',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;
+    }
+    html,body{margin:0;height:100%;font-family:var(--font);color:var(--text);background:var(--primary-bg);}
+    body.theme-light{
+      --primary-bg:#f5f7fa; --secondary-bg:#ffffff; --panel:#ffffff; --sidebar:#ecf2ff;
+      --text:#17233a; --muted:#51607a; --bubble-ai:#ffffff; --ai-text:#1a2640;
+      background:var(--primary-bg); color:var(--text);
+    }
+    body.kids{
+      --radius:22px;
+    }
+
+    /* Layout */
+    #container{display:flex;min-height:100vh;}
+    aside.sidebar{
+      width:280px;background:var(--sidebar);display:flex;flex-direction:column;
+      box-shadow:2px 0 12px rgba(0,0,0,.1);padding:16px 14px 10px 14px;
+    }
+    .brand{
+      display:flex;align-items:center;gap:12px;margin:6px 6px 12px 6px;
+    }
+    .brand img{width:40px;height:40px;border-radius:10px;object-fit:cover;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+    .brand .title{font-weight:700;font-size:18px;line-height:1.2}
+    .controls{display:flex;gap:8px;margin:8px 6px 14px 6px;}
+    .controls button{
+      background:linear-gradient(90deg,#0dbc6e,#28e0b7);border:none;color:#fff;border-radius:10px;
+      padding:8px 12px;cursor:pointer;box-shadow:var(--shadow);font-weight:600;
+      transition:transform .12s ease; font-size:14px;
+    }
+    .controls button.ghost{
+      background:transparent;border:2px solid rgba(255,255,255,.2);color:var(--text)
+    }
+    .controls button:active{transform:scale(.97)}
+    .history{flex:1;overflow:auto;padding:6px}
+    .history-item{
+      padding:10px 12px;border-radius:10px;margin:8px 4px;background:rgba(255,255,255,.06);
+      cursor:pointer;transition:background var(--transition),transform .12s ease;font-size:14px;
+    }
+    .history-item:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}
+    .history-item.active{background:rgba(40,224,183,.15);outline:2px solid rgba(40,224,183,.35);color:#b2fff0}
+    .new-chat{padding:10px 12px;border-radius:10px;margin:8px 4px;background:rgba(40,224,183,.15);border:1px dashed #28e0b7;color:#c9fff3;cursor:pointer}
+    .sidebar-footer{padding:10px 6px 14px 6px;font-size:12px;color:var(--muted);text-align:center}
+
+    main{flex:1;display:flex;flex-direction:column;background:var(--secondary-bg);border-left:2px solid rgba(0,0,0,.12)}
+    .messages{
+      flex:1;display:flex;flex-direction:column;gap:22px;padding:28px 22px 12px 22px;overflow:auto;scroll-behavior:smooth
+    }
+    .message-row{display:flex;gap:12px;max-width:850px;align-items:flex-start}
+    .message-row.user{justify-content:flex-end;align-self:flex-end}
+    .message-row.ai{align-self:flex-start}
+    .avatar{
+      width:36px;height:36px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+      font-weight:700;background:#1f2b45;color:#9feedd;box-shadow:0 4px 12px rgba(0,0,0,.2)
+    }
+    body.theme-light .avatar{background:#e9f7ff;color:#136b57}
+    .avatar.ai{background:#e3fff7;color:#0dbc6e}
+    body.theme-light .avatar.ai{background:#dff9ff;color:#0dbc6e}
+
+    .bubble{
+      padding:16px 18px;border-radius:var(--radius);box-shadow:var(--shadow);max-width:78%;
+      background:var(--bubble-ai);color:var(--ai-text);position:relative;line-height:1.55;font-size:17px
+    }
+    .bubble.user{
+      background:var(--bubble-user);color:#fff;border-bottom-right-radius:8px;font-weight:500
+    }
+    .bubble.ai{border-bottom-left-radius:8px}
+    .bubble.ai .meta{
+      font-size:13px;color:#7b8fb2;margin-bottom:8px;display:flex;gap:10px;align-items:center
+    }
+
+    /* Kids mode makes fonts larger and spacing wider */
+    body.kids .bubble{font-size:18.5px}
+    body.kids .messages{gap:26px}
+    body.kids .controls button{font-size:15px}
+
+    .bubble .pin{
+      position:absolute;top:10px;right:12px;background:#0dbc6e;color:#fff;border:none;border-radius:8px;
+      font-size:12px;padding:3px 7px;cursor:pointer;box-shadow:0 6px 14px rgba(13,188,110,.25)
+    }
+    .bubble .pin.active{background:#ff9f2e}
+
+    /* Shloka / Sanskrit highlight card */
+    .shloka-card{
+      border:2px solid rgba(13,188,110,.35);border-radius:14px;padding:12px 14px;margin:10px 0;background:rgba(40,224,183,.08)
+    }
+    .shloka-line{font-size:18px;font-weight:700;margin-bottom:8px}
+    .gloss{font-size:14px;color:#49648c}
+    .meaning{margin-top:8px;padding:10px;border-radius:10px;background:rgba(255,255,255,.7);color:#16223b}
+
+    /* Sanskrit glow */
+    .sanskrit-glow{box-shadow:0 0 0 3px rgba(40,224,183,.25), 0 0 22px rgba(40,224,183,.2)}
+
+    /* Composer */
+    .composer{position:sticky;bottom:0;background:var(--panel);padding:15px 0;border-top:2px solid rgba(0,0,0,.12);box-shadow:0 -6px 24px rgba(0,0,0,.08)}
+    .compose-inner{
+      display:flex;gap:10px;max-width:850px;margin:auto;background:var(--panel);border-radius:var(--radius);padding:10px 12px;align-items:center;
+      box-shadow:var(--shadow)
+    }
+    textarea{
+      flex:1;background:transparent;border:none;color:var(--text);font-size:17px;line-height:1.6;outline:none;resize:none;min-height:38px;max-height:180px
+    }
+    button.send{
+      background:linear-gradient(90deg,#0dbc6e,#28e0b7);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;display:flex;gap:8px;align-items:center
+    }
+    button.send:disabled{opacity:.6;cursor:not-allowed}
+
+    .suggestions{max-width:850px;margin:8px auto 0 auto;display:flex;gap:10px;flex-wrap:wrap;padding:0 8px 10px 8px}
+    .suggestion{
+      background:rgba(40,224,183,.15);color:#b2fff0;border:1px dashed #28e0b7;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:14px
+    }
+    .suggestion:hover{background:rgba(40,224,183,.25)}
+
+    /* Empty state */
+    .empty{
+      text-align:center;color:var(--muted);padding-top:40px;font-size:20px
+    }
+
+    /* Snackbar */
+    .snackbar{
+      position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:linear-gradient(90deg,#0dbc6e,#28e0b7);
+      color:#fff;padding:10px 18px;border-radius:12px;box-shadow:var(--shadow);animation:fadeup 2.4s ease
+    }
+    @keyframes fadeup{
+      0%{opacity:0;bottom:10px} 10%,85%{opacity:1;bottom:28px} 100%{opacity:0;bottom:56px}
+    }
+
+    /* Themed loaders (SVG/CSS) */
+    .loader-stage{display:flex;align-items:center;gap:10px}
+    .loader-label{font-size:14px;color:#6da5ff}
+
+    /* Krishna: Sudarshana Chakra spinner */
+    .chakra{
+      width:40px;height:40px;filter:drop-shadow(0 6px 14px rgba(40,224,183,.4))
+    }
+    .spin{animation:spin 1.6s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Arjuna: Arrow flight */
+    .arrow-scene{width:64px;height:36px;position:relative;overflow:visible}
+    .arrow{position:absolute;left:-70px;top:12px;width:60px;height:2px;background:#ffd27a;border-radius:3px;box-shadow:0 0 10px 2px rgba(255,210,122,.5);animation:shoot 1.8s ease-in-out infinite}
+    .arrow:after{content:"";position:absolute;right:-6px;top:-3px;border-left:8px solid #ffd27a;border-top:5px solid transparent;border-bottom:5px solid transparent;filter:drop-shadow(0 0 6px #ffd27a)}
+    @keyframes shoot{
+      0%{left:-70px;opacity:.0} 15%{opacity:1} 60%{left:70px} 100%{left:110px;opacity:0}
+    }
+
+    /* Bhishma: Arrow Rain */
+    .arrow-rain{position:relative;width:60px;height:38px}
+    .rain i{
+      position:absolute;width:2px;height:12px;background:#a3b7ff;top:-14px;left:calc(var(--x)*1px);
+      opacity:.8;transform:rotate(20deg);animation:fall 1.2s linear infinite;filter:drop-shadow(0 0 6px rgba(140,170,255,.6))
+    }
+    @keyframes fall{
+      0%{transform:translateY(0) rotate(20deg)}100%{transform:translateY(48px) rotate(20deg)}
+    }
+
+    /* Karna: Sun burst */
+    .sun-wrap{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff6cc,#ffd27a,#ff9f2e);box-shadow:0 0 20px 6px rgba(255,159,46,.35);animation:pulse 1.6s ease-in-out infinite}
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+    /* Draupadi: Lotus bloom */
+    .lotus{width:42px;height:42px;position:relative}
+    .petal{
+      position:absolute;left:50%;top:50%;width:20px;height:28px;background:radial-gradient(circle at 50% 30%,#ffdff5,#ff9fe1,#ff73c6);
+      border-radius:50% 50% 0 0;transform-origin:50% 100%;filter:drop-shadow(0 4px 8px rgba(255,115,198,.35))
+    }
+    .lotus .p1{transform:translate(-50%,-100%) rotate(0deg)}
+    .lotus .p2{transform:translate(-50%,-100%) rotate(45deg)}
+    .lotus .p3{transform:translate(-50%,-100%) rotate(90deg)}
+    .lotus .p4{transform:translate(-50%,-100%) rotate(135deg)}
+    .lotus .p5{transform:translate(-50%,-100%) rotate(180deg)}
+    .lotus .p6{transform:translate(-50%,-100%) rotate(225deg)}
+    .lotus .p7{transform:translate(-50%,-100%) rotate(270deg)}
+    .lotus .p8{transform:translate(-50%,-100%) rotate(315deg)}
+    .lotus .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:#fff2f9}
+    .lotus, .sun-wrap, .chakra, .arrow, .rain i{animation-duration:1.6s}
+
+    /* Markdown heading styling with emojis for kids */
+    .bubble.ai h1,.bubble.ai h2,.bubble.ai h3{margin:10px 0 8px 0}
+    .bubble.ai h1{font-size:22px}
+    .bubble.ai h2{font-size:20px}
+    .bubble.ai h3{font-size:18px}
+
+    /* Mobile tweaks */
+    @media(max-width:760px){
+      #container{flex-direction:column}
+      aside.sidebar{width:100%;flex-direction:row;gap:10px;align-items:center}
+      .history{display:none}
+      .controls{margin-left:auto}
+      .messages{padding:16px 10px}
+      .compose-inner{margin:0 10px}
+      .suggestions{padding:0 10px}
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="logo.png" alt="Mahabharata logo" />
+        <div class="title">🪶 Mahabharata Storyteller</div>
+      </div>
+      <div class="controls">
+        <button id="toggleTheme" class="ghost" title="Light/Dark">🌙 Theme</button>
+        <button id="toggleKids" class="ghost" title="Kids Mode">🧒 Kids</button>
+        <button id="clearAll" title="Clear">🗑️ Clear</button>
+      </div>
+      <div id="history" class="history"></div>
+      <div class="new-chat" id="newChat">➕ New Chat</div>
+      <div class="sidebar-footer">Made for children & families • Learn with joy</div>
+    </aside>
+
+    <main>
+      <div id="messages" class="messages"></div>
+
+      <div class="composer">
+        <div class="compose-inner">
+          <textarea id="input" rows="1" placeholder="Ask in simple words… ‘Who is Arjuna?’ ‘What did Krishna teach?’"></textarea>
+          <button id="send" class="send">
+            <span>Send</span>
+            <svg height="18" width="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 12h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+              <path d="M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div id="suggestions" class="suggestions"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      // Elements
+      const messagesEl = document.getElementById('messages');
+      const input = document.getElementById('input');
+      const send = document.getElementById('send');
+      const historyEl = document.getElementById('history');
+      const newChatBtn = document.getElementById('newChat');
+      const clearAll = document.getElementById('clearAll');
+      const toggleTheme = document.getElementById('toggleTheme');
+      const toggleKids = document.getElementById('toggleKids');
+      const suggestionsEl = document.getElementById('suggestions');
+
+      // State
+      let chats = [];
+      let current = 0;
+      let pinned = [];
+      const dynamicSuggestions = [
+        "🌸 Tell Karna’s birth story",
+        "⚔️ Why did Bhishma take a vow?",
+        "🛡️ What did Krishna teach Arjuna?",
+        "📖 Who were the Pandavas?",
+        "✨ Meaning of ‘धर्मो रक्षति रक्षितः’"
+      ];
+
+      // Init theme and kids
+      const savedTheme = (localStorage.getItem('theme')||'dark');
+      if(savedTheme === 'light') document.body.classList.add('theme-light');
+      toggleTheme.textContent = savedTheme === 'light' ? '☀️ Theme' : '🌙 Theme';
+
+      const savedKids = localStorage.getItem('kids') === 'true';
+      if(savedKids) document.body.classList.add('kids');
+      toggleKids.textContent = savedKids ? '🧒 Kids On' : '🧒 Kids';
+
+      // Utilities
+      function save(){ localStorage.setItem('mhb-chats', JSON.stringify(chats)); }
+      function load(){
+        chats = JSON.parse(localStorage.getItem('mhb-chats')||'[]');
+        if(!chats.length) chats=[{title:'',msgs:[]}];
+        current = chats.length-1;
+      }
+      function toast(msg){
+        const el = document.createElement('div');
+        el.className='snackbar'; el.textContent=msg;
+        document.body.appendChild(el);
+        setTimeout(()=>el.remove(),2300);
+      }
+      function scrollBottom(){ messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+      function mdToHtml(md){
+        try{
+          const raw = window.marked ? marked.parse(md) : md.replace(/\n/g,'<br/>');
+          return window.DOMPurify ? DOMPurify.sanitize(raw) : raw;
+        }catch{ return md.replace(/\n/g,'<br/>'); }
+      }
+
+      // Inject kid-friendly emoji headings into rendered markdown
+      function emojiHeadings(html){
+        return html
+          .replace(/<h1>(.*?)<\/h1>/g, (_,t)=>`<h1>🌸 ${t}</h1>`)
+          .replace(/<h2>(.*?)<\/h2>/g, (_,t)=>{
+            const map=[['Intro','🌸'],['Family','🌸'],['Early','👶'],['Journey','🛡️'],['Deeds','⚔️'],['Death','🌟'],['Legacy','🌟'],['Teachings','✨'],['Morals','✨']];
+            const tag = map.find(([k])=>t.toLowerCase().includes(k.toLowerCase()))?.[1] || '📖';
+            return `<h2>${tag} ${t}</h2>`;
+          });
+      }
+
+      // Highlight Sanskrit blocks and split “Sanskrit / meaning / gloss”
+      const devanagari = /[\u0900-\u097F]/;
+      function enhanceSanskrit(html){
+        // Wrap standalone Devanagari lines
+        html = html.replace(/(<p>)([^<]*[\u0900-\u097F][^<]*)(<\/p>)/g, (_,a,line,c)=>{
+          return `${a}<div class="shloka-card">
+            <div class="shloka-line">${line}</div>
+          </div>${c}`;
+        });
+        // Special “Sanskrit:” / “Meaning:” formatting
+        html = html.replace(/Sanskrit\s*:\s*([^<\n]+)/gi, (m, line)=>{
+          return `<div class="shloka-card"><div class="shloka-line">${line.trim()}</div>`;
+        });
+        html = html.replace(/Word-?by-?word\s*:\s*([^<\n]+)/gi, (m, txt)=>{
+          return `<div class="gloss"><strong>Word-by-word:</strong> ${txt.trim()}</div>`;
+        });
+        html = html.replace(/Meaning\s*:\s*([^<\n]+)/gi, (m, txt)=>{
+          return `<div class="meaning"><strong>Meaning:</strong> ${txt.trim()}</div></div>`;
+        });
+        return html;
+      }
+
+      function formatAI(md){
+        let html = mdToHtml(md);
+        html = emojiHeadings(html);
+        html = enhanceSanskrit(html);
+        return html;
+      }
+
+      function addRow(role, html, idx){
+        const row = document.createElement('div');
+        row.className = 'message-row '+role;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar '+role;
+        avatar.textContent = role==='user' ? 'U' : 'AI';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble '+role;
+        bubble.innerHTML = html;
+
+        // Meta line for AI
+        if(role==='ai'){
+          const meta = document.createElement('div'); meta.className='meta';
+          meta.innerHTML = '<span>Guide</span> • <span>Mahābhārata</span>';
+          bubble.prepend(meta);
+
+          // pin
+          const pinBtn = document.createElement('button');
+          pinBtn.className = 'pin'+(pinned.includes(idx)?' active':'');
+          pinBtn.textContent = pinned.includes(idx) ? 'Pinned' : 'Pin';
+          pinBtn.onclick = ()=>{
+            if(pinned.includes(idx)){ pinned = pinned.filter(x=>x!==idx); }
+            else { pinned.push(idx); }
+            render();
+          };
+          bubble.appendChild(pinBtn);
+        }
+
+        // Sanskrit glow if contains Devanagari
+        if(devanagari.test(bubble.textContent)) bubble.classList.add('sanskrit-glow');
+
+        if(role==='user'){
+          row.appendChild(bubble);
+          row.appendChild(avatar);
+        }else{
+          row.appendChild(avatar);
+          row.appendChild(bubble);
+        }
+        messagesEl.appendChild(row);
+        scrollBottom();
+        return bubble;
+      }
+
+      // Themed loaders
+      function loaderKrishna(){
+        const wrap = document.createElement('div'); wrap.className='loader-stage';
+        wrap.innerHTML = `
+          <svg class="chakra" viewBox="0 0 100 100" aria-hidden="true">
+            <g class="spin">
+              <circle cx="50" cy="50" r="34" fill="none" stroke="#0dbc6e" stroke-width="4"/>
+              <g fill="#28e0b7">
+                ${Array.from({length:12}).map((_,i)=>{
+                  const angle = (i*30)*Math.PI/180;
+                  const x = 50 + Math.cos(angle)*34;
+                  const y = 50 + Math.sin(angle)*34;
+                  return `<circle cx="${x}" cy="${y}" r="2.6"/>`;
+                }).join('')}
+              </g>
+            </g>
+          </svg>
+          <span class="loader-label">Krishna is thinking…</span>
+        `;
+        return wrap;
+      }
+      function loaderArjuna(){
+        const wrap = document.createElement('div'); wrap.className='loader-stage';
+        wrap.innerHTML = `<div class="arrow-scene"><div class="arrow"></div></div><span class="loader-label">Arjuna aims true…</span>`;
+        return wrap;
+      }
+      function loaderBhishma(){
+        const wrap = document.createElement('div'); wrap.className='loader-stage';
+        const rain = document.createElement('div'); rain.className='arrow-rain rain';
+        for(let i=0;i<10;i++){
+          const d = document.createElement('i');
+          d.style.setProperty('--x', String(6+i*5));
+          d.style.animationDelay = (i*0.08)+'s';
+          rain.appendChild(d);
+        }
+        wrap.appendChild(rain);
+        const label = document.createElement('span'); label.className='loader-label'; label.textContent='Arrows fall like rain…';
+        wrap.appendChild(label);
+        return wrap;
+      }
+      function loaderKarna(){
+        const wrap = document.createElement('div'); wrap.className='loader-stage';
+        wrap.innerHTML = `<div class="sun-wrap"></div><span class="loader-label">Karna’s sun shines…</span>`;
+        return wrap;
+      }
+      function loaderDraupadi(){
+        const wrap = document.createElement('div'); wrap.className='loader-stage';
+        wrap.innerHTML = `<div class="lotus">
+            <div class="petal p1"></div><div class="petal p2"></div><div class="petal p3"></div><div class="petal p4"></div>
+            <div class="petal p5"></div><div class="petal p6"></div><div class="petal p7"></div><div class="petal p8"></div>
+            <div class="center"></div>
+          </div>
+          <span class="loader-label">A lotus of wisdom blooms…</span>`;
+        return wrap;
+      }
+      function loaderDefault(){
+        const wrap = document.createElement('div'); wrap.className='loader-stage';
+        wrap.innerHTML = `<div style="display:flex;gap:6px;align-items:center">
+          <span class="dot" style="width:8px;height:8px;background:#28e0b7;border-radius:50%;animation:dot 1.2s infinite .0s"></span>
+          <span class="dot" style="width:8px;height:8px;background:#28e0b7;border-radius:50%;animation:dot 1.2s infinite .15s"></span>
+          <span class="dot" style="width:8px;height:8px;background:#28e0b7;border-radius:50%;animation:dot 1.2s infinite .3s"></span>
+        </div><span class="loader-label">Thinking…</span>`;
+        const style = document.createElement('style');
+        style.textContent = `@keyframes dot{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}`;
+        wrap.appendChild(style);
+        return wrap;
+      }
+      function chooseTheme(text){
+        const t = (text||'').toLowerCase();
+        if(/krishna|keshava|govinda|vasudeva|madhusudan/.test(t)) return 'krishna';
+        if(/arjuna|partha|gudakesha|dhananjaya/.test(t)) return 'arjuna';
+        if(/bhishma|gangeya|pitamaha/.test(t)) return 'bhishma';
+        if(/karna|radheya|vaikartana/.test(t)) return 'karna';
+        if(/draupadi|panchali|krishnaa/.test(t)) return 'draupadi';
+        return 'default';
+      }
+      function themedLoader(theme){
+        switch(theme){
+          case 'krishna': return loaderKrishna();
+          case 'arjuna': return loaderArjuna();
+          case 'bhishma': return loaderBhishma();
+          case 'karna': return loaderKarna();
+          case 'draupadi': return loaderDraupadi();
+          default: return loaderDefault();
+        }
+      }
+
+      function showSuggestions(){
+        suggestionsEl.innerHTML='';
+        dynamicSuggestions.forEach(s=>{
+          const b = document.createElement('button');
+          b.className='suggestion'; b.textContent = s;
+          b.onclick = ()=>{ input.value = s.replace(/^([🌸⚔️🛡️📖✨])\s*/,''); input.focus(); toast('Suggestion added'); }
+          suggestionsEl.appendChild(b);
+        });
+      }
+
+      // Render history
+      function renderHistory(){
+        historyEl.innerHTML='';
+        chats.forEach((c,i)=>{
+          const el = document.createElement('div');
+          el.className = 'history-item'+(i===current?' active':'');
+          el.textContent = c.title || `Chat #${i+1}`;
+          el.onclick = ()=>{ current=i; render(); }
+          historyEl.appendChild(el);
+        });
+      }
+
+      // Render messages
+      function render(forceEmpty=false){
+        messagesEl.innerHTML='';
+        const chat = chats[current];
+        if(!chat || forceEmpty || chat.msgs.length===0){
+          const empty = document.createElement('div');
+          empty.className='empty';
+          empty.innerHTML = `🪶 <b>Namaste!</b> I am your friendly epic guide.<br/>Ask about any hero, event, or Sanskrit line.`;
+          messagesEl.appendChild(empty);
+          showSuggestions();
+          return;
+        }
+        chat.msgs.forEach((m,i)=>{
+          const html = m.role==='ai' ? formatAI(m.msg) : mdToHtml(m.msg);
+          addRow(m.role, html, i);
+        });
+        showSuggestions();
+        scrollBottom();
+      }
+
+      // Actions
+      toggleTheme.onclick = ()=>{
+        document.body.classList.toggle('theme-light');
+        const light = document.body.classList.contains('theme-light');
+        localStorage.setItem('theme', light ? 'light':'dark');
+        toggleTheme.textContent = light ? '☀️ Theme' : '🌙 Theme';
+      };
+      toggleKids.onclick = ()=>{
+        document.body.classList.toggle('kids');
+        const on = document.body.classList.contains('kids');
+        localStorage.setItem('kids', on ? 'true':'false');
+        toggleKids.textContent = on ? '🧒 Kids On' : '🧒 Kids';
+        toast(on ? 'Kids mode on: larger text & friendlier visuals' : 'Kids mode off');
+      };
+
+      clearAll.onclick = async ()=>{
+        chats=[{title:'',msgs:[]}]; current=0; pinned=[];
+        save(); renderHistory(); render(true);
+        try{ await fetch('/reset',{method:'POST'}) }catch{}
+        toast('Chat cleared');
+      };
+
+      newChatBtn.onclick = ()=>{
+        chats.push({title:'',msgs:[]}); current=chats.length-1;
+        save(); renderHistory(); render(true);
+      };
+
+      // Send flow with streaming and themed loader
+      async function sendMsg(){
+        const text = (input.value||'').trim();
+        if(!text) return;
+        input.value=''; send.disabled=true; input.disabled=true;
+
+        // Create chat if missing and set a friendly title
+        if(!chats[current]) chats[current]={title:'',msgs:[]};
+        if(!chats[current].title){
+          const firstWord = text.split(/\s+/)[0] || 'Chat';
+          chats[current].title = firstWord.charAt(0).toUpperCase()+firstWord.slice(1);
+        }
+
+        // Push user
+        chats[current].msgs.push({role:'user',msg:text});
+        save(); renderHistory();
+        addRow('user', mdToHtml(text), chats[current].msgs.length-1);
+
+        // Themed loader
+        const theme = chooseTheme(text);
+        const loaderBubble = addRow('ai', '<div class="loader-stage"></div>', chats[current].msgs.length);
+        const stage = loaderBubble.querySelector('.loader-stage');
+        stage.replaceWith(themedLoader(theme));
+
+        try{
+          const res = await fetch('/ask',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({message:text})
+          });
+          if(!res.ok){ loaderBubble.innerHTML = `<b style="color:#b00020">⚠️ Error: ${res.status}</b>`; return; }
+
+          // Stream reading
+          let reply = '';
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+
+          // While streaming, if we detect new character mentions, swap loader label/animation once.
+          let swapped = false;
+
+          while(true){
+            const {done, value} = await reader.read();
+            if(done) break;
+            reply += decoder.decode(value, {stream:true});
+
+            // Live theme adjust once if needed
+            if(!swapped){
+              const detected = chooseTheme(reply);
+              if(detected !== theme && detected !== 'default'){
+                // swap tiny label only (keep content fluid)
+                const lab = loaderBubble.querySelector('.loader-label');
+                if(lab){
+                  lab.textContent =
+                    detected==='krishna' ? 'Krishna is thinking…' :
+                    detected==='arjuna' ? 'Arjuna aims true…' :
+                    detected==='bhishma'? 'Arrows fall like rain…' :
+                    detected==='karna'  ? 'Karna’s sun shines…' :
+                    detected==='draupadi'? 'A lotus of wisdom blooms…' : 'Thinking…';
+                }
+                swapped = true;
+              }
+            }
+
+            loaderBubble.innerHTML = formatAI(reply);
+            if(devanagari.test(loaderBubble.textContent)) loaderBubble.classList.add('sanskrit-glow');
+            scrollBottom();
+          }
+          chats[current].msgs.push({role:'ai',msg:reply});
+          save(); renderHistory();
+          showSuggestions();
+        }catch(e){
+          loaderBubble.innerHTML = `<b style="color:#b00020">⚠️ Network error</b>`;
+        }
+        send.disabled=false; input.disabled=false; input.focus();
+      }
+
+      input.addEventListener('keydown',e=>{
+        if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); }
+      });
+      send.onclick = sendMsg;
+
+      // Boot
+      load(); renderHistory(); render(true);
+      showSuggestions();
+    })();
+  </script>
+</body>
+</html>
